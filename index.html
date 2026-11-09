@@ -1136,59 +1136,6 @@
       } catch (e) {}
       setLanguage(savedLang);
 
-      // Web Audio API Synthesizer Fallback (Traditional Indian Flute / Shehnai melody in Raag Yaman)
-      function startSynthFluteMelody() {
-        try {
-          if (!synthAudioContext) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) synthAudioContext = new AudioCtx();
-          }
-          if (!synthAudioContext) return;
-          if (synthAudioContext.state === 'suspended') {
-            synthAudioContext.resume();
-          }
-
-          // Raag Yaman / Bhupali scale frequencies (Hz): Sa, Re, Ga, Pa, Dha, Sa
-          const notes = [
-            261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 440.00, 392.00, 329.63, 293.66
-          ];
-          let noteIndex = 0;
-
-          if (synthInterval) clearInterval(synthInterval);
-          synthInterval = setInterval(() => {
-            if (!isAudioPlaying || !synthAudioContext) return;
-            const osc = synthAudioContext.createOscillator();
-            const gain = synthAudioContext.createGain();
-
-            // Flute-like gentle sine wave with soft vibrato
-            osc.type = 'sine';
-            const freq = notes[noteIndex % notes.length];
-            osc.frequency.setValueAtTime(freq, synthAudioContext.currentTime);
-
-            gain.gain.setValueAtTime(0.001, synthAudioContext.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.08, synthAudioContext.currentTime + 0.15);
-            gain.gain.exponentialRampToValueAtTime(0.0001, synthAudioContext.currentTime + 0.95);
-
-            osc.connect(gain);
-            gain.connect(synthAudioContext.destination);
-
-            osc.start();
-            osc.stop(synthAudioContext.currentTime + 1.0);
-
-            noteIndex++;
-          }, 600);
-        } catch (e) {
-          console.warn('Web Audio synth notice:', e);
-        }
-      }
-
-      function stopSynthFluteMelody() {
-        if (synthInterval) {
-          clearInterval(synthInterval);
-          synthInterval = null;
-        }
-      }
-
       function updateAudioUI(playing) {
         isAudioPlaying = playing;
         const dict = translations[currentLang] || translations.en;
@@ -1217,20 +1164,17 @@
             promise.then(() => {
               updateAudioUI(true);
             }).catch(() => {
-              // Browser blocked file audio or network issue -> use flute synth
-              startSynthFluteMelody();
-              updateAudioUI(true);
+              // Browser requires user interaction; keep UI in ready state
+              updateAudioUI(false);
             });
           }
         } catch (err) {
-          startSynthFluteMelody();
-          updateAudioUI(true);
+          updateAudioUI(false);
         }
       }
 
       function pauseMusic() {
         audio.pause();
-        stopSynthFluteMelody();
         updateAudioUI(false);
       }
 
@@ -1243,19 +1187,19 @@
         }
       });
 
-      // Ambient audio autoplay on first interaction (click/touch/scroll)
+      // Ambient audio autoplay on first interaction (click/touch)
       let initialUserInteracted = false;
       function handleFirstUserInteraction() {
         if (!initialUserInteracted) {
           initialUserInteracted = true;
           playMusic();
-          ['click', 'touchstart', 'scroll'].forEach(evt => {
+          ['click', 'touchstart'].forEach(evt => {
             window.removeEventListener(evt, handleFirstUserInteraction, { capture: true });
           });
         }
       }
 
-      ['click', 'touchstart', 'scroll'].forEach(evt => {
+      ['click', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, handleFirstUserInteraction, { capture: true, once: true });
       });
 
